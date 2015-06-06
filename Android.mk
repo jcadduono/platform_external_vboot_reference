@@ -6,6 +6,13 @@
 
 LOCAL_PATH := $(call my-dir)
 
+ifeq ($(HOST_OS),darwin)
+LOCAL_CFLAGS += -DHAVE_MACOS -DO_LARGEFILE=0
+endif
+
+# These are required to access large disks and files on 32-bit systems.
+LOCAL_CFLAGS += -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+
 VBUTIL_INCL = \
 	$(LOCAL_PATH)/firmware/include \
 	$(LOCAL_PATH)/firmware/lib/include \
