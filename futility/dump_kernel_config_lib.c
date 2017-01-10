@@ -8,7 +8,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#ifdef __ANDROID__
+#include <fcntl.h>
+#else
 #include <sys/fcntl.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>

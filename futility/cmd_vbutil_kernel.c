@@ -289,12 +289,14 @@ static int do_vbutil_kernel(int argc, char *argv[])
 		case OPT_ARCH:
 			/* check the first 3 characters to also detect x86_64 */
 			if ((!strncasecmp(optarg, "x86", 3)) ||
+			    (!strcasecmp(optarg, "i386")) ||
+			    (!strcasecmp(optarg, "x64")) ||
 			    (!strcasecmp(optarg, "amd64")))
 				arch = ARCH_X86;
-			else if ((!strcasecmp(optarg, "arm")) ||
+			else if ((!strncasecmp(optarg, "arm", 3)) || /* arm64 */
 				 (!strcasecmp(optarg, "aarch64")))
 				arch = ARCH_ARM;
-			else if (!strcasecmp(optarg, "mips"))
+			else if (!strncasecmp(optarg, "mips", 3)) /* mips64 */
 				arch = ARCH_MIPS;
 			else {
 				fprintf(stderr,

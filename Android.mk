@@ -5,18 +5,8 @@
 # Minimal makefile capable of compiling futility to sign images
 
 LOCAL_PATH := $(call my-dir)
-include $(CLEAR_VARS)
 
-LOCAL_MODULE := libvboot_util-host
-
-ifeq ($(HOST_OS),darwin)
-LOCAL_CFLAGS += -DHAVE_MACOS -DO_LARGEFILE=0
-endif
-
-# These are required to access large disks and files on 32-bit systems.
-LOCAL_CFLAGS += -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
-
-LOCAL_C_INCLUDES += \
+VBUTIL_INCL = \
 	$(LOCAL_PATH)/firmware/include \
 	$(LOCAL_PATH)/firmware/lib/include \
 	$(LOCAL_PATH)/firmware/lib/cgptlib/include \
@@ -100,30 +90,11 @@ UTILLIB_SRCS = \
 
 #	host/arch/${HOST_ARCH}/lib/crossystem_arch.c \
 
-LOCAL_SRC_FILES := \
+VBUTIL_SRCS = \
 	$(VBINIT_SRCS) \
 	$(VBSF_SRCS) \
 	$(VBSLK_SRCS) \
 	$(UTILLIB_SRCS)
-
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_C_INCLUDES)
-LOCAL_STATIC_LIBRARIES := libcrypto_static
-
-include $(BUILD_HOST_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := futility-host
-LOCAL_IS_HOST_MODULE := true
-LOCAL_MODULE_CLASS := EXECUTABLES
-generated_sources := $(call local-generated-sources-dir)
-
-ifeq ($(HOST_OS),darwin)
-LOCAL_CFLAGS += -DHAVE_MACOS
-endif
-
-# These are required to access large disks and files on 32-bit systems.
-LOCAL_CFLAGS += -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 
 FUTIL_STATIC_SRCS = \
 	futility/futility.c \
@@ -148,9 +119,41 @@ FUTIL_SRCS = \
 
 #	${FUTIL_STATIC_WORKAROUND_SRCS:%.c=${BUILD}/%.o} \
 
-LOCAL_SRC_FILES := \
-	$(FUTIL_SRCS) \
+include $(CLEAR_VARS)
+LOCAL_MODULE := libvboot_util-host
+ifeq ($(HOST_OS),darwin)
+LOCAL_CFLAGS += -DHAVE_MACOS -DO_LARGEFILE=0
+endif
+# These are required to access large disks and files on 32-bit systems.
+LOCAL_CFLAGS += -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+LOCAL_C_INCLUDES += $(VBUTIL_INCL)
+LOCAL_SRC_FILES := $(VBUTIL_SRCS)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_C_INCLUDES)
+LOCAL_STATIC_LIBRARIES := libcrypto_static
+include $(BUILD_HOST_STATIC_LIBRARY)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE := libvboot_util
+# These are required to access large disks and files on 32-bit systems.
+LOCAL_CFLAGS += -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+LOCAL_C_INCLUDES += $(VBUTIL_INCL)
+LOCAL_SRC_FILES := $(VBUTIL_SRCS)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_C_INCLUDES)
+LOCAL_SHARED_LIBRARIES := libcrypto
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := futility-host
+LOCAL_IS_HOST_MODULE := true
+LOCAL_MODULE_CLASS := EXECUTABLES
+ifeq ($(HOST_OS),darwin)
+LOCAL_CFLAGS += -DHAVE_MACOS
+endif
+# These are required to access large disks and files on 32-bit systems.
+LOCAL_CFLAGS += -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+LOCAL_SRC_FILES := $(FUTIL_SRCS)
+
+generated_sources := $(call local-generated-sources-dir)
 $(generated_sources)/futility_cmds.c: ${FUTIL_SRCS:%=${LOCAL_PATH}/%}
 	@echo making $< from ${FUTIL_SRCS}
 	@rm -f $@ $@_t $@_commands
@@ -172,8 +175,42 @@ $(generated_sources)/futility_cmds.c: ${FUTIL_SRCS:%=${LOCAL_PATH}/%}
 	@rm -f $@_commands
 
 LOCAL_GENERATED_SOURCES := $(generated_sources)/futility_cmds.c
-
 LOCAL_STATIC_LIBRARIES := libvboot_util-host
 LOCAL_SHARED_LIBRARIES := libcrypto-host
 include $(BUILD_HOST_EXECUTABLE)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE := futility
+# Binary name clashes with directory name
+LOCAL_BUILT_MODULE_STEM := futility_bin
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := EXECUTABLES
+# These are required to access large disks and files on 32-bit systems.
+LOCAL_CFLAGS += -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+LOCAL_SRC_FILES := $(FUTIL_SRCS)
+
+generated_sources := $(call local-generated-sources-dir)
+$(generated_sources)/futility_cmds.c: ${FUTIL_SRCS:%=${LOCAL_PATH}/%}
+	@echo making $< from ${FUTIL_SRCS}
+	@rm -f $@ $@_t $@_commands
+	@mkdir -p $(dir $@)
+	@grep -hoRE '^DECLARE_FUTIL_COMMAND\([^,]+' $^ \
+		| sed 's/DECLARE_FUTIL_COMMAND(\(.*\)/_CMD(\1)/' \
+		| sort >>$@_commands
+	@external/vboot_reference/scripts/getversion.sh >> $@_t
+	@echo '#define _CMD(NAME) extern const struct' \
+		'futil_cmd_t __cmd_##NAME;' >> $@_t
+	@cat $@_commands >> $@_t
+	@echo '#undef _CMD' >> $@_t
+	@echo '#define _CMD(NAME) &__cmd_##NAME,' >> $@_t
+	@echo 'const struct futil_cmd_t *const futil_cmds[] = {' >> $@_t
+	@cat $@_commands >> $@_t
+	@echo '0};  /* null-terminated */' >> $@_t
+	@echo '#undef _CMD' >> $@_t
+	@mv $@_t $@
+	@rm -f $@_commands
+
+LOCAL_GENERATED_SOURCES := $(generated_sources)/futility_cmds.c
+LOCAL_STATIC_LIBRARIES := libvboot_util
+LOCAL_SHARED_LIBRARIES := libcrypto
+include $(BUILD_EXECUTABLE)

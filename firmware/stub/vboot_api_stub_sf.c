@@ -5,7 +5,9 @@
  * Stub implementations of firmware-provided API functions.
  */
 
+#ifndef __ANDROID__
 #include <execinfo.h>
+#endif
 #include <stdint.h>
 
 #define _STUB_IMPLEMENTATION_
@@ -26,12 +28,15 @@ struct alloc_node {
 	struct alloc_node *next;
 	void *ptr;
 	size_t size;
+#ifndef __ANDROID__
 	void *bt_buffer[MAX_STACK_LEVELS];
 	int bt_levels;
+#endif
 };
 
 static struct alloc_node *alloc_head;
 
+#ifndef __ANDROID__
 static void print_stacktrace(void)
 {
 	void *buffer[MAX_STACK_LEVELS];
@@ -40,6 +45,7 @@ static void print_stacktrace(void)
 	// print to stderr (fd = 2), and remove this function from the trace
 	backtrace_symbols_fd(buffer + 1, levels - 1, 2);
 }
+#endif
 
 void *VbExMalloc(size_t size)
 {
@@ -57,7 +63,9 @@ void *VbExMalloc(size_t size)
 	node->next = alloc_head;
 	node->ptr = p;
 	node->size = size;
+#ifndef __ANDROID__
 	node->bt_levels = backtrace(node->bt_buffer, MAX_STACK_LEVELS);
+#endif
 	alloc_head = node;
 
 	return p;
@@ -86,7 +94,9 @@ void VbExFree(void *ptr)
 	} else {
 		fprintf(stderr, "\n>>>>>> Invalid VbExFree() %p\n", ptr);
 		fflush(stderr);
+#ifndef __ANDROID__
 		print_stacktrace();
+#endif
 		/*
 		 * Fall through and do the free() so we get normal error
 		 * handling.
@@ -118,8 +128,10 @@ int vboot_api_stub_check_memory(void)
 		next = node->next;
 		fprintf(stderr, "\nptr=%p, size=%zd\n", node->ptr, node->size);
 		fflush(stderr);
+#ifndef __ANDROID__
 		backtrace_symbols_fd(node->bt_buffer + 1, node->bt_levels - 1,
 				     2);
+#endif
 		free(node);
 	}
 

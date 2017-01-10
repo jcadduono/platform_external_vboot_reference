@@ -811,12 +811,14 @@ static int do_sign(int argc, char *argv[])
 		case OPT_ARCH:
 			/* check the first 3 characters to also match x86_64 */
 			if ((!strncasecmp(optarg, "x86", 3)) ||
+			    (!strcasecmp(optarg, "i386")) ||
+			    (!strcasecmp(optarg, "x64")) ||
 			    (!strcasecmp(optarg, "amd64")))
 				option.arch = ARCH_X86;
-			else if ((!strcasecmp(optarg, "arm")) ||
+			else if ((!strncasecmp(optarg, "arm", 3)) || /* arm64 */
 				 (!strcasecmp(optarg, "aarch64")))
 				option.arch = ARCH_ARM;
-			else if (!strcasecmp(optarg, "mips"))
+			else if (!strncasecmp(optarg, "mips", 3)) /* mips64 */
 				option.arch = ARCH_MIPS;
 			else {
 				fprintf(stderr,
